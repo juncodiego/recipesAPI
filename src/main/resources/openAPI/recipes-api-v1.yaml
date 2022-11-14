@@ -1,0 +1,241 @@
+openapi: 3.0.3
+info:
+  title: Recipes API
+  description: |-
+    This is an API that allows users to manage their favourite recipes. It allows adding, updating, removing and fetching recipes.
+    
+    Additionally users are able to filter available recipes based on one or more of the following criteria:
+    
+    1. Whether or not the dish is vegetarian
+    2. The number of servings
+    3. Specific ingredients (either include or exclude)
+    4. Text search within the instructions
+    
+    For example, the API is able to handle the following search requests:
+    - All vegetarian recipes
+    - Recipes that can serve 4 persons and have “potatoes” as an ingredient
+    - Recipes without “salmon” as an ingredient that has “oven” in the instructions
+    
+    Some useful links:
+    - [The Recipes API repository](https://github.com/juncodiego/recipes)
+    - [The source API definition for the Recipes API](https://github.com/juncodiego/recipes/blob/master/src/main/resources/openAPI/recipes-api-v1.yaml)
+  contact:
+    name: Diego Junco
+    email: ing.diego.junco@gmail.com
+    url: https://www.linkedin.com/in/diego-junco
+  version: 1.0.0
+externalDocs:
+  description: Check my LinkedIn
+  url: https://www.linkedin.com/in/diego-junco
+servers:
+  - url: http://localhost:8080/api/v1
+tags:
+  - name: recipe
+    description: Everything about your recipes
+paths:
+  /recipe:
+    post:
+      tags:
+        - recipe
+      summary: Add a new recipe
+      description: Add a new recipe
+      operationId: createRecipe
+      requestBody:
+        description: Create a new recipe
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Recipe'
+        required: true
+      responses:
+        '201':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recipe'
+        '405':
+          description: Invalid input
+    put:
+      tags:
+        - recipe
+      summary: Update an existing recipe
+      description: Update an existing recipe by Id
+      operationId: updateRecipe
+      requestBody:
+        description: Update an existent recipe
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Recipe'
+        required: true
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recipe'
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: Recipe not found
+        '405':
+          description: Validation exception
+    get:
+      tags:
+        - recipe
+      summary: Get recipes
+      description: Get all recipes
+      operationId: getRecipeList
+      parameters:
+        - name: instructionContains
+          in: query
+          description: Text search within the instructions
+          required: false
+          schema:
+            type: string
+        - name: numberOfServings
+          in: query
+          description: Filter by number of servings
+          required: false
+          schema:
+            type: integer
+            format: int32
+        - name: category
+          in: query
+          description: Filter by category
+          required: false
+          schema:
+            type: string
+        - name: includeIngredients
+          in: query
+          description: Filter by included ingredients
+          required: false
+          schema:
+            type: string
+        - name: excludeIngredients
+          in: query
+          description: Filter by excluded ingredients
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Recipe'
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: Recipe not found
+
+  /recipe/{recipeId}:
+    get:
+      tags:
+        - recipe
+      summary: Find recipe by ID
+      description: Returns a single recipe
+      operationId: getRecipeById
+      parameters:
+        - name: recipeId
+          in: path
+          description: ID of recipe to return
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recipe'
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: Recipe not found
+    delete:
+      tags:
+        - recipe
+      summary: Deletes a recipe
+      description: delete a recipe
+      operationId: deleteRecipe
+      parameters:
+        - name: recipeId
+          in: path
+          description: Recipe id to delete
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Recipe deleted successfully
+        '404':
+          description: Recipe not found
+components:
+  schemas:
+    Recipe:
+      required:
+        - name
+        - numberOfServings
+        - category
+        - ingredients
+        - instructions
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 10
+        name:
+          type: string
+          description: Recipe name
+          example: Pad Thai
+        numberOfServings:
+          type: integer
+          description: Number of servings
+          format: int32
+          example: 2
+        category:
+          type: string
+          description: Recipe category
+          example: main-course
+          enum:
+            - breakfast
+            - lunch
+            - dinner
+            - appetizer
+            - salad
+            - main-course
+            - side-dish
+            - desset
+            - snack
+            - soup
+            - vegetarian
+        ingredients:
+          type: array
+          description: Recipe ingredient list
+          items:
+            type: string
+          example: [palm sugar,water,fish sauce,tamarind]
+        instructions:
+          type: string
+          description: Recipe instructions
+          example: 1.To make the sauce, melt and caramelize the palm sugar.\n2.Add water to stop the caramelization.\n3.Add fish sauce and tamarind and bring to a simmer.
+  requestBodies:
+    Recipe:
+      description: Recipe object
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Recipe'
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/Recipe'
