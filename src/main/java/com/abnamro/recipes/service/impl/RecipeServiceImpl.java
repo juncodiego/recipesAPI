@@ -5,6 +5,8 @@ import com.abnamro.recipes.exception.RecipeNotFoundException;
 import com.abnamro.recipes.mapper.RecipeEntityMapper;
 import com.abnamro.recipes.repository.RecipeRepository;
 import com.abnamro.recipes.service.RecipeService;
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.Root;
 import lombok.RequiredArgsConstructor;
 import lombok.val;
 import org.springframework.data.jpa.domain.Specification;
@@ -58,56 +60,73 @@ public class RecipeServiceImpl implements RecipeService {
 
     @Override
     public List<Recipe> getRecipeList(final String instructionContains, final Integer numberOfServings, final String category, final String includeIngredients, final String excludeIngredients) {
-        final Specification<com.abnamro.recipes.db.model.Recipe> spec = (root, query, cb) -> {
-            final List<Predicate> predicates = new ArrayList<>();
-            if (StringUtils.hasText(instructionContains)) {
-                final String lowerInstructions = instructionContains.toLowerCase();
-                predicates.add(cb.like(cb.lower(root.get(com.abnamro.recipes.db.model.Recipe.Fields.instructions)), "%" + lowerInstructions + "%"));
-            }
-            if(Optional.ofNullable(numberOfServings).isPresent()){
-                predicates.add(cb.equal(root.get(com.abnamro.recipes.db.model.Recipe.Fields.numberOfServings), numberOfServings));
-            }
-            if (StringUtils.hasText(category)) {
-                final String lowerCategory = category.toLowerCase();
-                predicates.add(cb.equal(cb.lower(root.get(com.abnamro.recipes.db.model.Recipe.Fields.category)), lowerCategory));
-            }
-            if (StringUtils.hasText(includeIngredients)) {
-                final var includeIngredientsList = Arrays.asList(includeIngredients.split(","));
-                Expression<?> jsonb = cb.function(
-                        "jsonb_build_array",
-                        Object.class,
-                        cb.literal(includeIngredientsList)
-                );
-                var containsExpression = cb.function("jsonb_contains",
-                        Boolean.class,
-                        root.get(com.abnamro.recipes.db.model.Recipe.Fields.ingredients),
-                        jsonb
-                        );
-                predicates.add(cb.isTrue(containsExpression));
-            }
-            if (StringUtils.hasText(excludeIngredients)) {
-                final var excludeIngredientsList = Arrays.asList(excludeIngredients.split(","));
-                Expression<?> jsonb = cb.function(
-                        "jsonb_build_array",
-                        Object.class,
-                        cb.literal(excludeIngredientsList)
-                );
-                var containsExpression = cb.function("jsonb_contains",
-                        Boolean.class,
-                        root.get(com.abnamro.recipes.db.model.Recipe.Fields.ingredients),
-                        jsonb
-                );
-                predicates.add(cb.isFalse(containsExpression));
-            }
-
-            return cb.and(predicates.toArray(new Predicate[]{}));
-        };
-
+        final Specification<com.abnamro.recipes.db.model.Recipe> spec = (root, query, cb) -> getRecipeSpecification(root, cb, instructionContains, numberOfServings, category, includeIngredients, excludeIngredients);
         final var response = recipeRepository.findAll(spec);
         if(response.isEmpty()){
             throw new RecipeNotFoundException("Recipes not found for the current set of filters");
         }
-
         return response.stream().map(recipeEntityMapper::toApiModel).toList();
+    }
+
+    private Predicate getRecipeSpecification(final Root<com.abnamro.recipes.db.model.Recipe> root, final CriteriaBuilder cb, final String instructionContains, final Integer numberOfServings, final String category, final String includeIngredients, final String excludeIngredients){
+        final List<Predicate> predicates = new ArrayList<>();
+        getInstructionContainsPredicate(instructionContains, root, cb).ifPresent(predicates::add);
+        getNumberOfServingsPredicate(numberOfServings, root, cb).ifPresent(predicates::add);
+        getCategoryPredicate(category, root, cb).ifPresent(predicates::add);
+        getIncludeIngredientsPredicate(includeIngredients, root, cb).ifPresent(predicates::add);
+        getExcludeIngredientsPredicate(excludeIngredients, root, cb).ifPresent(predicates::add);
+        return cb.and(predicates.toArray(new Predicate[]{}));
+    }
+
+    private Optional<Predicate> getInstructionContainsPredicate(final String instructionContains, final Root<com.abnamro.recipes.db.model.Recipe> root, final CriteriaBuilder cb){
+        if (StringUtils.hasText(instructionContains)) {
+            final String lowerInstructions = instructionContains.toLowerCase();
+            return Optional.of(cb.like(cb.lower(root.get(com.abnamro.recipes.db.model.Recipe.Fields.instructions)), "%" + lowerInstructions + "%"));
+        }
+        return Optional.empty();
+    }
+
+    private Optional<Predicate> getNumberOfServingsPredicate(final Integer numberOfServings, final Root<com.abnamro.recipes.db.model.Recipe> root, final CriteriaBuilder cb){
+        if(Optional.ofNullable(numberOfServings).isPresent()){
+            return Optional.of(cb.equal(root.get(com.abnamro.recipes.db.model.Recipe.Fields.numberOfServings), numberOfServings));
+        }
+        return Optional.empty();
+    }
+    private Optional<Predicate> getCategoryPredicate(final String category, final Root<com.abnamro.recipes.db.model.Recipe> root, final CriteriaBuilder cb){
+        if (StringUtils.hasText(category)) {
+            final String lowerCategory = category.toLowerCase();
+            return Optional.of(cb.equal(cb.lower(root.get(com.abnamro.recipes.db.model.Recipe.Fields.category)), lowerCategory));
+        }
+        return Optional.empty();
+    }
+
+    private Optional<Predicate> getIncludeIngredientsPredicate(final String includeIngredients, final Root<com.abnamro.recipes.db.model.Recipe> root, final CriteriaBuilder cb){
+        if (StringUtils.hasText(includeIngredients)) {
+            var containsExpression = getIngredientsContainsExpression(includeIngredients, root, cb);
+            return Optional.of(cb.isTrue(containsExpression));
+        }
+        return Optional.empty();
+    }
+
+    private Optional<Predicate> getExcludeIngredientsPredicate(final String excludeIngredients, final Root<com.abnamro.recipes.db.model.Recipe> root, final CriteriaBuilder cb){
+        if (StringUtils.hasText(excludeIngredients)) {
+            var containsExpression = getIngredientsContainsExpression(excludeIngredients, root, cb);
+            return Optional.of(cb.isFalse(containsExpression));
+        }
+        return Optional.empty();
+    }
+
+    private Expression<Boolean> getIngredientsContainsExpression(final String ingredients, final Root<com.abnamro.recipes.db.model.Recipe> root, final CriteriaBuilder cb){
+        final var ingredientsList = Arrays.asList(ingredients.split(","));
+        Expression<?> jsonb = cb.function(
+            "jsonb_build_array",
+            Object.class,
+            cb.literal(ingredientsList)
+        );
+        return cb.function("jsonb_contains",
+            Boolean.class,
+            root.get(com.abnamro.recipes.db.model.Recipe.Fields.ingredients),
+            jsonb
+        );
     }
 }

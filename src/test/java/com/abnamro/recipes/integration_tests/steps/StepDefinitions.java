@@ -5,6 +5,7 @@ import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import io.cucumber.spring.CucumberContextConfiguration;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.assertj.core.api.Assertions;
 import org.flywaydb.core.Flyway;
 import org.json.JSONException;
@@ -21,6 +22,7 @@ import java.util.Optional;
 @CucumberContextConfiguration
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @RequiredArgsConstructor
+@Slf4j
 public class StepDefinitions {
 
     @LocalServerPort
@@ -111,6 +113,7 @@ public class StepDefinitions {
 
     @Given("The database is clean")
     public void the_database_is_clean() {
+        log.info("********************Cleaning the database********************");
         flyway.clean();
         flyway.migrate();
     }

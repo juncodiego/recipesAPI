@@ -11,14 +11,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 @Slf4j
 public class RestExceptionHandler {
 
-    @ExceptionHandler(RecipeNotFoundException.class)
-    public ResponseEntity<Void> handleNotFound(RecipeNotFoundException ex) {
-        log.error(ex.getMessage());
-        return ResponseEntity.notFound().build();
-    }
-
-    @ExceptionHandler(EmptyResultDataAccessException.class)
-    public ResponseEntity<Void> handleEmptyResultData(EmptyResultDataAccessException ex) {
+    @ExceptionHandler({RecipeNotFoundException.class, EmptyResultDataAccessException.class})
+    public ResponseEntity<Void> handleNotFound(Exception ex) {
         log.error(ex.getMessage());
         return ResponseEntity.notFound().build();
     }
